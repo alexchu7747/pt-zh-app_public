@@ -332,7 +332,7 @@
             if(!state.key) return alert('请设置 API Key');
             openDr(w);
             try {
-               const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${state.key.trim()}`, {
+               const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.key.trim()}`, {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({contents:[{parts:[{text: `分析巴葡单词"${w}"在上下文"${ctx}"中的意思。返回JSON:{"mean":"释义","gram":"语法","ext":"用法"}`}]}]})
                 });
