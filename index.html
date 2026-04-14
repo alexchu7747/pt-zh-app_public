@@ -333,44 +333,18 @@
             else if(state.ytPlayer) state.ytPlayer.pauseVideo();
 
             const apiKey = state.key.trim();
-            if(!apiKey) return alert('请先在系统设置中配置 API Key');
+            if(!apiKey) return alert('请先设置 API Key');
             
             document.getElementById('dr-t').innerText = w;
-            document.getElementById('dr-c').innerHTML = "🔍 正在连接 Google，探测可用 AI 模型...";
+            document.getElementById('dr-c').innerHTML = "✨ AI 正在解析...";
             document.getElementById('dr-s').style.display = 'none';
             document.getElementById('dr').classList.add('open');
 
+            const prompt = `你是巴葡老师。分析单词"${w}"在上下文"${ctx}"中的意思。只返回JSON:{"mean":"释义","gram":"词性/变位","ext":"用法建议"}`;
+            
             try {
-                // 1. 自动探测模型逻辑（绝杀 404 报错）
-                if (!state.modelName) {
-                    const modelRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-                    if (!modelRes.ok) {
-                        const errText = await modelRes.text();
-                        throw new Error(`探测失败，状态码: ${modelRes.status}。请检查 API Key 是否有效。`);
-                    }
-                    const modelData = await modelRes.json();
-                    
-                    // 筛选出支持生成文本的模型
-                    const validModels = modelData.models.filter(m => m.supportedGenerationMethods.includes("generateContent"));
-                    
-                    // 智能挑选优先级：flash -> pro -> 列表里的第一个
-                    let targetModel = validModels.find(m => m.name.includes("gemini-1.5-flash"));
-                    if (!targetModel) targetModel = validModels.find(m => m.name.includes("flash"));
-                    if (!targetModel) targetModel = validModels.find(m => m.name.includes("pro"));
-                    if (!targetModel) targetModel = validModels[0]; 
-                    
-                    if (!targetModel) throw new Error("你的 API Key 账号下没有任何可用的对话模型！");
-                    
-                    // 拿到 Google 官方认可的绝对准确名字
-                    state.modelName = targetModel.name; 
-                }
-
-                document.getElementById('dr-c').innerHTML = `✨ 成功握手 <b>${state.modelName.split('/').pop()}</b>，正在为您解析...`;
-
-                // 2. 拿着绝对准确的名字，正式发起翻译请求
-                const prompt = `你是巴葡老师。分析单词"${w}"在上下文"${ctx}"中的意思。只返回JSON:{"mean":"释义","gram":"词性/变位","ext":"用法建议"}`;
-                
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/${state.modelName}:generateContent?key=${apiKey}`;
+                // 引擎直连：精准锁定刚才探测成功的 2.5 版本
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
                 
                 const res = await fetch(apiUrl, {
                     method: 'POST', 
@@ -378,10 +352,7 @@
                     body: JSON.stringify({contents: [{parts: [{text: prompt}]}]})
                 });
                 
-                if (!res.ok) {
-                    const errJson = await res.json().catch(()=>({}));
-                    throw new Error(`HTTP 状态码: ${res.status}. 详情: ${errJson.error?.message || '未知错误'}`);
-                }
+                if (!res.ok) throw new Error(`HTTP 报错: ${res.status}`);
                 
                 const data = await res.json();
                 const jsonText = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
@@ -395,16 +366,10 @@
                 `;
                 document.getElementById('dr-s').style.display = 'block';
             } catch(e) { 
-                state.modelName = null; // 报错就清空错误名字，下次重新探测
                 document.getElementById('dr-c').innerHTML = `
-                    <div style="color:#d32f2f; background:#ffebee; padding:15px; border-radius:8px; font-size:0.95rem;">
-                        <b>❌ 接口联通失败</b><br><br>
-                        <b>系统原话：</b><br>
-                        <code style="word-break: break-all;">${e.message}</code><br><br>
-                        <b>终极排查建议：</b><br>
-                        如果状态码依然报错，说明你现在的 API Key 并没有开通权限。请前往 Google AI Studio 重新生成一个全新的 Key。
+                    <div style="color:red; padding:10px; background:#ffebee; border-radius:8px;">
+                        解析失败：${e.message}。请检查网络或 API Key。
                     </div>`; 
-                console.error("API 报错详情:", e);
             }
         }
 
