@@ -329,19 +329,57 @@
 
         async function askAI(w, ctx) {
             event.stopPropagation();
-            if(!state.key) return alert('请设置 API Key');
-            openDr(w);
+            if(state.mode === 'local') document.getElementById('player').pause();
+            else if(state.ytPlayer) state.ytPlayer.pauseVideo();
+
+            if(!state.key) return alert('请先设置 API Key');
+            document.getElementById('dr-t').innerText = w;
+            document.getElementById('dr-c').innerHTML = "✨ AI 正在解析...";
+            document.getElementById('dr-s').style.display = 'none';
+            document.getElementById('dr').classList.add('open');
+
+            const prompt = `你是巴葡老师。分析单词"${w}"在上下文"${ctx}"中的意思。只返回JSON:{"mean":"释义","gram":"词性/变位","ext":"用法建议"}`;
             try {
-               const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.key.trim()}`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({contents:[{parts:[{text: `分析巴葡单词"${w}"在上下文"${ctx}"中的意思。返回JSON:{"mean":"释义","gram":"语法","ext":"用法"}`}]}]})
+                // 绝对标准的官方 API 路径，加上了对 Key 的自动清理
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.key.trim()}`;
+                
+                const res = await fetch(apiUrl, {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({contents: [{parts: [{text: prompt}]}]})
                 });
-                const d = await res.json();
-                const j = JSON.parse(d.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim());
-                state.cur = { word:w, context:ctx, ...j };
-                document.getElementById('dr-c').innerHTML = `<p><b>释义：</b>${j.mean}</p><p><b>语法：</b>${j.gram}</p><p style="background:#f8f9fa;padding:12px;border-radius:8px;">${j.ext}</p>`;
+                
+                // 如果服务器依然拒绝，直接把它的“底牌”翻出来
+                if (!res.ok) {
+                    throw new Error(`HTTP 状态码: ${res.status}`);
+                }
+                
+                const data = await res.json();
+                const jsonText = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
+                const json = JSON.parse(jsonText);
+                
+                state.cur = { word: w, context: ctx, ...json };
+                document.getElementById('dr-c').innerHTML = `
+                    <p><b>释义：</b>${json.mean}</p>
+                    <p><b>语法：</b>${json.gram}</p>
+                    <p style="background:#f8f9fa;padding:15px;border-radius:8px;"><b>💡 拓展：</b><br>${json.ext}</p>
+                `;
                 document.getElementById('dr-s').style.display = 'block';
-            } catch(e) { document.getElementById('dr-c').innerHTML = '解析失败'; }
+            } catch(e) { 
+                // 报错 UI 强化：直接在右侧抽屉显示真正的死因
+                document.getElementById('dr-c').innerHTML = `
+                    <div style="color:#d32f2f; background:#ffebee; padding:15px; border-radius:8px; font-size:0.95rem;">
+                        <b>❌ API 请求失败</b><br><br>
+                        <b>错误详情：</b><br>
+                        <code>${e.message}</code><br><br>
+                        <b>排查参考：</b><br>
+                        • <b>400</b>：请求格式不对或 Key 不完整。<br>
+                        • <b>403</b>：API Key 无效、已过期，或被 Google 区域限制。<br>
+                        • <b>404</b>：网址/模型名字拼写错误。<br>
+                        • <b>Failed to fetch</b>：你本地的网络代理/插件拦截了请求。
+                    </div>`; 
+                console.error("API 报错详情:", e);
+            }
         }
 
         function openDr(t) { document.getElementById('dr-t').innerText=t; document.getElementById('dr-c').innerText='解析中...'; document.getElementById('dr-s').style.display='none'; document.getElementById('dr').classList.add('open'); }
