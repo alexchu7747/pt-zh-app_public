@@ -71,7 +71,7 @@
     <main class="content">
         <div id="video" class="view active">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0">视频精听舱</h2>
+                <h2 style="margin:0">视频精听</h2>
                 <div id="v-ctrl" style="display:none; gap:10px;">
                     <button class="btn btn-danger" onclick="resetVideo()">⬅️ 返回</button>
                     <button class="btn btn-s" id="blind-btn" onclick="toggleBlind()">👁️ 盲听模式</button>
@@ -340,7 +340,7 @@
             document.getElementById('dr-s').style.display = 'none';
             document.getElementById('dr').classList.add('open');
 
-            const prompt = `你是巴葡老师。分析单词"${w}"在上下文"${ctx}"中的意思。只返回JSON:{"mean":"释义","gram":"词性/变位","ext":"用法建议"}`;
+            const prompt = `单词"${w}" 是什么意思。只返回JSON:{"mean":"解释"}`;
             
             try {
                 // 引擎直连：精准锁定刚才探测成功的 2.5 版本
